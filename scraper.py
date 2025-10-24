@@ -4,6 +4,101 @@ import schedule
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
+class BookPageParseError(Exception):
+    """Исключение для ошибок парсинга страницы книги."""
+    pass
+
+class BookDataNotFoundError(Exception):
+    """Исключение когда не найдены критические данные книги."""
+    pass
+
+
+def inti_must_have_data(book_url, must_have_data):
+    if must_have_data is None:
+        must_have_data = []
+
+    parsed = urlparse(book_url)
+    base_url = f"{parsed.scheme}://{parsed.netloc}/"
+
+    if not isinstance(book_url, str):
+        raise ValueError(f"URL должен быть строкой, получен {type(book_url)}")
+
+    return base_url, must_have_data
+
+    
+def init_http(book_url):
+    """Выполнение HTTP-запроса"""
+    try:
+        response = requests.get(book_url)
+        response.raise_for_status()
+        return response
+    except requests.exceptions.RequestException as e:
+        raise requests.exceptions.RequestException(
+            f"Ошибка выполнения HTTP-запроса {response.status_code}: {e}")
+
+
+def init_parsing(response):
+    """Парсинг"""
+    try:
+        return BeautifulSoup(response.text, 'html.parser')
+    except Exception as e:
+        raise BookPageParseError(f"Ошибка парсинга HTML: {e}")
+    
+
+def make_data(soup,base_url,class_table,must_have_data):
+    data = {}
+
+    data['title'] = soup.find('h1').text
+    data['price'] = soup.find('p', class_='price_color').text
+    data['description'] = soup.find('meta', attrs={'name': 'description'})['content']
+
+    rating_element = soup.find('p', class_='star-rating')
+    data['rating'] = rating_element['class'][1] if rating_element else None
+
+    availability = soup.find('p', class_='instock')
+    data['availability'] = availability.text.strip() if availability else None
+
+    breadcrumb = soup.find('ul', class_='breadcrumb')
+    category_links = breadcrumb.find_all('li')
+    data['category'] = category_links[2].text.strip() if len(category_links) > 2 else None
+
+    table = soup.find(class_=class_table)
+
+    headers = map(lambda x: x.get_text(strip=True), table.find_all('th'))
+    data_cells = map(lambda x: x.get_text(strip=True), table.find_all('td'))
+
+    data['product_info'] = dict(zip(headers, data_cells))
+
+    image = soup.find('div', class_='item active').find('img')
+    data['image_url'] = base_url + image['src'].replace('../..', '') if image else None
+
+    none_data = set(must_have_data) & {key for key, value in data.items() if value is None}
+    if none_data:
+        raise BookDataNotFoundError(f"Обязательные поля не заполнены: {', '.join(none_data)}")
+    return data 
+
+
+def validation_get_book_data(func):
+    def wrapper(
+        book_url: str,
+        class_table: str = "table table-striped",
+        must_have_data: list = None
+        )-> dict:
+
+        try:
+            res = func(book_url, class_table,must_have_data)
+
+        except (ValueError, requests.exceptions.RequestException,
+            BookPageParseError, BookDataNotFoundError):
+            raise
+
+        except Exception as e:
+            raise BookPageParseError(f"Непредвиденная ошибка при обработке страницы: {e}")
+        return res
+    return wrapper
+
+
+@validation_get_book_data
 def get_book_data(
     book_url: str,
     class_table: str = "table table-striped",
@@ -26,23 +121,57 @@ def get_book_data(
         Exception: При ошибках парсинга HTML-контента
     """
 
-    # Кастомные исключения
-    class BookPageParseError(Exception):
-        """Исключение для ошибок парсинга страницы книги."""
-        pass
-
-    class BookDataNotFoundError(Exception):
-        """Исключение когда не найдены критические данные книги."""
-        pass
-
     # Инициализация must_have_data по умолчанию
-    if must_have_data is None:
-        must_have_data = []
+    base_url, must_have_data = inti_must_have_data(book_url,must_have_data)
 
-    parsed = urlparse(book_url)
-    base_url = f"{parsed.scheme}://{parsed.netloc}/"
+    # Выполнение HTTP-запроса
+    response = init_http(book_url)      
+
+    # Парсинг
+    soup = init_parsing(response)
+
+    return make_data(soup,base_url,class_table,must_have_data)
+
+
+def get_book_data2(
+    book_url: str,
+    class_table: str = "table table-striped",
+    must_have_data: list = None
+) -> dict:
+    """
+    Извлекает данные о книге из HTML-таблицы на веб-странице.
+
+    Args:
+        book_url (str): URL-адрес страницы с информацией о книге
+        class_table (str): CSS-класс таблицы (по умолчанию "table table-striped")
+        must_have_data (list): Список обязательных полей для проверки
+
+    Returns:
+        dict: Словарь с данными о книге
+
+    Raises:
+        ValueError: При некорректных входных параметрах
+        requests.exceptions.RequestException: При ошибках HTTP-запроса
+        Exception: При ошибках парсинга HTML-контента
+    """
     
     try:
+        # Кастомные исключения
+        class BookPageParseError(Exception):
+            """Исключение для ошибок парсинга страницы книги."""
+            pass
+
+        class BookDataNotFoundError(Exception):
+            """Исключение когда не найдены критические данные книги."""
+            pass
+
+        # Инициализация must_have_data по умолчанию
+        if must_have_data is None:
+            must_have_data = []
+
+        parsed = urlparse(book_url)
+        base_url = f"{parsed.scheme}://{parsed.netloc}/"
+
         if not isinstance(book_url, str):
             raise ValueError(f"URL должен быть строкой, получен {type(book_url)}")
 

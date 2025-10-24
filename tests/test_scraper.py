@@ -21,7 +21,7 @@ def test_extract_data():
     """Проверяет запись данных в файл"""
     test_filename = 'test_books_data.txt'
 
-        # Создаем временную директорию для теста
+    # Создаем временную директорию для теста
     with tempfile.TemporaryDirectory() as temp_dir:
         test_filename = os.path.join(temp_dir, 'test_books_data.txt')
 
