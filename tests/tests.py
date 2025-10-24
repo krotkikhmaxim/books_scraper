@@ -7,7 +7,6 @@ import time
 import json
 from unittest.mock import Mock, patch, MagicMock
 import sys
-import tempfile
 
 # Добавляем корневую директорию в Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,27 +14,23 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scraper import scrape_books, get_book_data
 
 
-
-
 def test_extract_data():
     """Проверяет запись данных в файл"""
     test_filename = 'test_books_data.txt'
-
-        # Создаем временную директорию для теста
-    with tempfile.TemporaryDirectory() as temp_dir:
-        test_filename = os.path.join(temp_dir, 'test_books_data.txt')
-
-        # Тестируем запись в файл
-        result = scrape_books(
-            is_save=True, 
-            file_name=test_filename, 
-            stop=1
-        )
-
-        # Проверяем, что файл создан и не пустой
-        assert os.path.exists(test_filename)
-        assert os.path.getsize(test_filename) > 0
+    result = scrape_books(
+        is_save=True, 
+        file_name=test_filename, 
+        stop=1,
+        format_data=lambda x: str(x)
+    )
     
+    # Проверяем, что файл создан и не пустой
+    assert os.path.exists(test_filename)
+    assert os.path.getsize(test_filename) > 0
+    
+    # Чистим за собой
+    if os.path.exists(test_filename):
+        os.remove(test_filename)
 
 def test_get_book_data():
     """Проверяет сбор данных об одной книге"""

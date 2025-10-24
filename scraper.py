@@ -110,7 +110,7 @@ def scrape_books(
     format_data=str,
     stop=float('inf'),
     func_get=get_book_data
-): 
+) -> dict: 
 
     """
     Парсит данные о книгах с сайта <base_url>.
@@ -141,7 +141,7 @@ def scrape_books(
     data = {}
     book_num = 1
     
-    while page_num < stop:
+    while page_num <= stop:
         url = base_url.format(page_num)
         response = requests.get(url)
         
