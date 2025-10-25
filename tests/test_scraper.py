@@ -1,42 +1,48 @@
 """tests"""
 
 
-from .scraper import scrape_books, get_book_data
-from test_scraper import TEST_URL
+from scraper import scrape_books, get_book_data
 import pytest
 import os
 import requests
 import json
 import sys
+import tempfile
 
 
 # Добавляем корневую директорию в Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+TEST_URL = "http://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html"
+
+
 def test_extract_data():
     """Проверяет запись данных в файл"""
     test_filename = 'test_books_data.txt'
-    result = scrape_books(
-        is_save=True,
-        file_name=test_filename,
-        stop=1,
-        format_data=lambda x: str(x)
-        )
-    result
-    # Проверяем, что файл создан и не пустой
-    assert os.path.exists(test_filename)
-    assert os.path.getsize(test_filename) > 0
 
-    # Чистим за собой
-    if os.path.exists(test_filename):
-        os.remove(test_filename)
+    # Создаем временную директорию для теста
+    with tempfile.TemporaryDirectory() as temp_dir:
+        test_filename = os.path.join(temp_dir, 'test_books_data.txt')
+
+        # Тестируем запись в файл
+        result = scrape_books(
+            is_save=True,
+            file_name=test_filename,
+            stop=1,
+            folder=''
+            )
+        result
+        # Проверяем, что файл создан и не пустой
+        assert os.path.exists(test_filename)
+        assert os.path.getsize(test_filename) > 0
 
 
 def test_get_book_data():
     """Проверяет сбор данных об одной книге"""
     # Используем реальную книгу для тестирования
     test_url = TEST_URL
+
     try:
         book_data = get_book_data(test_url)
 
